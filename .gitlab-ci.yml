@@ -1,0 +1,52 @@
+stages:
+  - module-pipelines
+
+frontend:
+  stage: module-pipelines
+  trigger:
+    include:
+      - "/frontend/.gitlab-ci.yml"
+    strategy: depend # depend нужен, если какой-нибудь дочерний пайплайн свалился, мы знали, что общий пайплайн тоже идёт с ошибкой
+  rules:
+    - changes: 
+      - frontend/**/*
+
+backend:
+  stage: module-pipelines
+  trigger:
+    include:
+      - "/backend/.gitlab-ci.yml"
+    strategy: depend
+  rules:
+    - changes:  
+      - backend/**/*
+
+infrastructure-helm-charts-store:
+  stage: module-pipelines
+  trigger:
+    include:
+      - "/infrastructure/helm_charts/.gitlab-ci-store-helm.yml"
+    strategy: depend
+  rules:
+    - changes:  
+      - infrastructure//helm_charts/momo-store-chart/**/*
+
+infrastructure-helm-charts-prometheus:
+  stage: module-pipelines
+  trigger:
+    include:
+      - "/infrastructure/helm_charts/.gitlab-ci-prometheus-helm.yml"
+    strategy: depend
+  rules:
+    - changes:  
+      - infrastructure//helm_charts/prometheus/**/*
+
+infrastructure-helm-charts-grafana:
+  stage: module-pipelines
+  trigger:
+    include:
+      - "/infrastructure/helm_charts/.gitlab-ci-grafana-helm.yml"
+    strategy: depend
+  rules:
+    - changes:  
+      - infrastructure//helm_charts/grafana/**/*
