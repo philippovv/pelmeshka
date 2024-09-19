@@ -1,0 +1,20 @@
+---
+# В массиве yandex_cloud_services можно указать конфигурацию
+# сервисов Yandex Cloud для сбора метрик в prometheus.
+# https://cloud.yandex.ru/docs/monitoring/operations/metric/prometheusExport
+#
+#yandex_cloud_services:
+#  # Пример значений для сервиса Managed PostgreSQL
+#  - service: managed-postgresql
+#    serviceId: <ID запущенного инстанса сервиса в Yandex Cloud>
+#    folderId: <ID фолдера в Yandex Cloud>
+#    bearer_token: <Токен авторизации>
+#    scrape_interval: 60s
+#  # Пример значений для сервиса Managed MongoDB
+#  - service: managed-mongodb
+#    serviceId: cakvctgrte4hunhvs8f
+#    folderId: b1g2hqnugteh52j2dfr
+#    bearer_token: AQVN3veeVseTVUm4RFjy-WRt9INXbdkS6Q8iC3Bh
+#    scrape_interval: 60s
+
+yandex_cloud_services: []

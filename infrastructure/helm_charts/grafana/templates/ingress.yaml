@@ -1,0 +1,28 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: grafana
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    ncert-manager.io/cluster-issuer: "http01-clusterissuer"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+      - "grafana.best-store-dumpling.ru"
+      secretName: grafana-secret
+  rules:
+  - host: "grafana.best-store-dumpling.ru"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000

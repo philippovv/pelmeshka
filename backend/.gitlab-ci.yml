@@ -1,0 +1,84 @@
+cache:
+  paths:
+    - ${CI_PROJECT_DIR}/.m2/repository
+
+variables:
+  VERSION: 1.0.${CI_PIPELINE_ID}
+
+stages:
+  - build
+  - tests
+  - sonarqube-tests
+  - release
+  - notify
+
+build-backend-code-job:
+  stage: build
+  only:
+    changes:
+    - backend/**/*
+  image:
+    name: gcr.io/kaniko-project/executor:v1.9.0-debug
+    entrypoint: [""]
+  # переменные CI_REGISTRY_USER, CI_REGISTRY_PASSWORD, CI_REGISTRY генерятся Гитлабом, их задавать не надо
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}/backend"
+      --dockerfile "${CI_PROJECT_DIR}/backend/Dockerfile"
+      --destination "${CI_REGISTRY_IMAGE}/momo-backend:$CI_COMMIT_SHA"
+      --build-arg VERSION=$VERSION
+      --cache=true
+
+unit-tests:
+  stage: tests
+  image: golang:1.19
+  script:
+    - cd backend
+    - go test -v ./...
+  needs:
+    - build-backend-code-job
+
+sonarqube-backend-sast:
+  stage: sonarqube-tests
+  image: sonarsource/sonar-scanner-cli:latest
+  cache:
+    paths:
+      - ${CI_PROJECT_DIR}/.m2/repository
+  script:
+    - cd backend
+    - sonar-scanner -Dsonar.qualitygate.wait=true -Dsonar.projectKey=${SONAR_PROJECT_KEY_BACK} -Dsonar.host.url=${SONARQUBE_URL} -Dsonar.login=${SONAR_LOGIN} -Dsonar.projectName=${SONAR_PROJECT_NAME_BACK}
+  needs:
+    - build-backend-code-job
+
+upload-backend-release:
+  stage: release
+  only:
+    changes:
+      - backend/**/*
+  variables:
+    GIT_STRATEGY: none
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    entrypoint: [ "" ]
+  needs:
+    - build-backend-code-job
+    - sonarqube-backend-sast
+    - unit-tests
+  cache: [ ]
+  script:
+    - crane auth login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - crane tag $CI_REGISTRY_IMAGE/momo-backend:$CI_COMMIT_SHA $VERSION
+
+telegram-notification-backend:
+  stage: notify
+  only:
+    changes:
+    - backend/**/*
+    variables:
+    - '$CI_COMMIT_MESSAGE =~ /notify/'
+  script:
+    - 'curl -X POST -H "Content-type: application/json" --data "{\"chat_id\": \"-1002100383038\", \"text\":\"Андрей Филиппов собрал backend. Артефакт залит в Nexus и доставлен на сервер. Ссылка на артефакт: $CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_SHA/download?job=build-backend-code-job\"}" https://api.telegram.org/bot5933756043:AAE8JLL5KIzgrNBeTP5e-1bkbJy4YRoeGjs/sendMessage'
+  needs:
+    - build-backend-code-job
+    - unit-tests
+    - sonarqube-backend-sast

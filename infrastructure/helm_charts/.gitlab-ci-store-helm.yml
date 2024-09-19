@@ -1,0 +1,42 @@
+variables:
+  VERSION: 1.0.${CI_PIPELINE_ID}
+
+stages:
+  - release-to-nexus
+  - deploy-momo-cluster
+  
+release-to-nexus:  
+  stage: release-to-nexus
+  image: alpine/helm:3.9.3  
+  script:
+  - cd infrastructure/helm_charts
+  - helm package momo-store-chart --dependency-update
+  - curl -v -u "${NEXUS_REPO_USER}:${NEXUS_REPO_PASS}" --upload-file momo-store-0.1.0.tgz ${NEXUS_REPO_URL}/repository/${NEXUS_REPO_HELM_NAME}/momo-store-0.1.0.tgz
+
+momo-store:
+  stage : deploy-momo-cluster
+  image: dtzar/helm-kubectl:3.15
+  before_script:
+    - apk add -q --no-cache bash curl
+    - curl -f -s -LO https://storage.yandexcloud.net/yandexcloud-yc/install.sh
+    - bash install.sh -i /usr/local/yandex-cloud -n
+    - ln -s /usr/local/yandex-cloud/bin/yc /usr/local/bin/yc
+    - echo ${YC_KEY} > /tmp/sa-key.json
+    - yc config profile create sa-profile
+    - yc config set service-account-key /tmp/sa-key.json
+    - yc config set cloud-id ${YC_CLOUD_ID}
+    - yc config set folder-id ${YC_FOLDER_ID}
+    - yc managed-kubernetes cluster get-credentials ${NAME_CLUSTER} --external
+    - kubectl get no
+  script:
+    - helm repo add nexus ${NEXUS_REPO_URL}/repository/${NEXUS_REPO_HELM_NAME} --username ${NEXUS_REPO_USER} --password ${NEXUS_REPO_PASS}
+    - helm repo update
+    - helm repo list
+    - helm upgrade --atomic --install momo nexus/momo-store -n momo-store
+
+  environment:
+    name: $CI_COMMIT_REF_SLUG
+    url: http://std-028-22.praktikum-services.tech/
+    auto_stop_in: 30m
+  rules:
+    - when: manual

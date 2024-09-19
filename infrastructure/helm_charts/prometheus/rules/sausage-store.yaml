@@ -1,0 +1,52 @@
+---
+groups:
+  - name: Sausage store rules
+    rules:
+    - alert: InstanceDown
+      expr: up{app="backend"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        project: "sausage_store"
+        component: "Backend"
+      annotations:
+        summary: "Chek pods backends"
+        description: | 
+          "There are no backend pods available"
+          "⬆️Алерт сформирован студентом std-028-22⬆️"
+      
+    - alert: Get500Error
+      expr: rate(http_server_requests_seconds_bucket{status=~"5.."}[1m]) > 0
+      labels:
+        severity: critical
+        project: "sausage_store"
+        component: "Backend"
+      annotations:
+        summary: "Get 500 error"
+        description: | 
+          "Received 500th error for application request"
+          "⬆️Алерт сформирован студентом std-028-22⬆️"
+
+    - alert: ValueOfMoreThan100ms
+      expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{method="POST",uri="/api/orders"}[5m])) by (le)) > 0.1
+      labels:
+        severity: critical
+        project: "sausage_store"
+        component: "Backend"
+      annotations:
+        summary: "Latency over 100ms"
+        description: | 
+          "Latency over 100ms to /api/orders"
+          "⬆️Алерт сформирован студентом std-028-22⬆️"
+
+    - alert: AnyErrorCodePrometheus
+      expr: sum(rate(http_server_requests_seconds_bucket{status!="1..|2..|3..",uri="/actuator/prometheus"}[2m]))
+      labels:
+        severity: critical
+        project: "sausage_store"
+        component: "Backend"
+      annotations:
+        summary: "High error rate detected"
+        description: | 
+          "High rate of HTTP errors detected"
+          "⬆️Алерт сформирован студентом std-028-22⬆️"

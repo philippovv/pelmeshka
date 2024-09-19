@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-conf
+data:
+  default.conf: |
+    server {
+      listen 80;
+
+      location / {
+        root  /var/www-data/html/;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+      }
+      
+      location ~ ^/(?:products|categories|orders|metrics|auth/whoami|catalog) {
+            proxy_pass   http://backend:8081;
+            }
+          }

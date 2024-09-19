@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Chart.Name }}
+  annotations:
+    cert-manager.io/cluster-issuer: "http01-clusterissuer"
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+      - {{ .Values.fqdn }}
+      secretName: domain-name-secret
+  rules:
+    - host: {{ .Values.fqdn }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Chart.Name }}
+                port:
+                  number: 443

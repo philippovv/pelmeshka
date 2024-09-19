@@ -1,0 +1,74 @@
+cache:
+  paths:
+    - frontend/dist
+
+variables:
+  VERSION: 1.0.${CI_PIPELINE_ID}
+
+stages:
+  - build
+  - test
+  - release
+  - notify
+
+build-frontend-code-job:
+  stage: build  
+  only:
+    changes:
+    - frontend/**/*
+  image:
+    name: gcr.io/kaniko-project/executor:v1.9.0-debug
+   # переменные CI_REGISTRY_USER, CI_REGISTRY_PASSWORD, CI_REGISTRY генерятся Гитлабом, их задавать не надо
+  script:
+    - echo "test"
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}/frontend"
+      --dockerfile "${CI_PROJECT_DIR}/frontend/Dockerfile"
+      --destination "${CI_REGISTRY_IMAGE}/momo-frontend:$CI_COMMIT_SHA"
+      --build-arg VERSION=$VERSION
+      --cache=true
+
+sonarqube-frontend-sast:
+  stage: test
+  image: sonarsource/sonar-scanner-cli:latest
+  cache:
+    paths:
+      - .npm/
+  script:
+    - cd frontend/src
+    - sonar-scanner -Dsonar.qualitygate.wait=true -Dsonar.projectKey=${SONAR_PROJECT_KEY_FRONT} -Dsonar.host.url=${SONARQUBE_URL} -Dsonar.login=${SONAR_LOGIN} -Dsonar.projectName=${SONAR_PROJECT_KEY_FRONT}
+  needs:
+    - build-frontend-code-job
+  allow_failure: true
+
+upload-frontend-release:
+  stage: release
+  only:
+    changes:
+    - frontend/**/*
+  variables:
+    GIT_STRATEGY: none
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    entrypoint: [ "" ]
+  needs:
+    - build-frontend-code-job
+    - sonarqube-frontend-sast
+  cache: [ ]
+  before_script:
+    - crane auth login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - crane tag $CI_REGISTRY_IMAGE/momo-frontend:$CI_COMMIT_SHA $VERSION
+
+telegram-notification-frontend:
+    stage: notify
+    only:
+      changes:
+      - frontend/**/*
+      variables:
+      - '$CI_COMMIT_MESSAGE =~ /notify/'
+    script:
+      - 'curl -X POST -H "Content-type: application/json" --data "{\"chat_id\": \"-1002100383038\", \"text\": \"Андрей Филиппов собрал frontend. Артефакт залит в Nexus и доставлен на сервер. Ссылка на артефакт: $CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_SHA/download?job=$CI_JOB_NAME\"}" https://api.telegram.org/bot5933756043:AAE8JLL5KIzgrNBeTP5e-1bkbJy4YRoeGjs/sendMessage'
+    needs:
+      - build-frontend-code-job
+      - sonarqube-frontend-sast

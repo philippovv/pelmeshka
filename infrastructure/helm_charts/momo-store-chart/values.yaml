@@ -1,0 +1,58 @@
+environment: production
+
+backend:
+  image:
+    repository: gitlab.praktikum-services.ru:5050/std-028-22/dumplings/momo-backend
+    tag: 1.0.1507738
+  replicas: 2
+  revisionHistoryLimit: 12
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 20%
+  livenessProbe:
+    httpGet:
+      path: /actuator/health
+      port: 8080
+    initialDelaySeconds: 20
+    periodSeconds: 30
+    timeoutSeconds: 2
+    failureThreshold: 6
+  ports:
+    - name: backend
+      containerPort: 8081
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: 0.1
+    limits:
+      memory: "512Mi"
+      cpu: 0.2
+
+frontend:
+  fqdn: best-store-dumpling.ru
+  image:
+    repository: gitlab.praktikum-services.ru:5050/std-028-22/dumplings/momo-frontend
+    tag: 1.0.1488664
+  revisionHistoryLimit: 12
+  ports:
+    - name: frontend
+      containerPort: 80
+  volumeMounts:
+    - name: frontend-conf
+      mountPath: /etc/nginx/conf.d
+  volumes:
+    - name: frontend-conf
+      configMap:
+        name: frontend-conf
+        items:
+          - key: default.conf
+            path: default.conf
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: 0.1
+    limits:
+      memory: "520Mi"
+      cpu: 0.2
